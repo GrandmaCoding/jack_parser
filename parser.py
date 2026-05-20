@@ -38,6 +38,18 @@ class Parser:
         if token:
             self.tokenizer.push_back(token)
         return token
+    
+    def _expect_identifier_or_this(self) -> JackToken:
+        token = self.tokenizer.try_read_next()
+        if token is None:
+            raise ExpectedException("identifier or 'this'", None)
+        
+        is_identifier = token.token_type == TokenType.IDENTIFIER
+        is_this = token.token_type == TokenType.KEYWORD and token.value == 'this'
+        
+        if not (is_identifier or is_this):
+            raise ExpectedException("identifier or 'this'", token)
+        return token
 
     def _expect(self, value: str) -> JackToken:
         """Read a token and expect it to have the given value."""
