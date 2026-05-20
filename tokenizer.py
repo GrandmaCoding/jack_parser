@@ -62,7 +62,74 @@ class Tokenizer:
         Returns:
             The next JackToken or None if there are no more tokens
         """
-        raise NotImplementedError()
+        if self.prev_tokens:
+            return self.prev_tokens.pop()
+
+        while True:
+            while self.ch and self.ch.isspace():
+                self._advance()
+            
+            if not self.ch:
+                return None
+
+            if self.ch == '/' and self.pos + 1 < len(self.text):
+                next_char = self.text[self.pos + 1]
+                if next_char == '/':  
+                    self._advance()  
+                    self._advance()  
+                    while self.ch and self.ch != '\n':
+                        self._advance()
+                    continue  
+                elif next_char == '*':  
+                    self._advance()  
+                    self._advance()  
+                    while self.ch:
+                        if self.ch == '*' and self.pos + 1 < len(self.text) and self.text[self.pos + 1] == '/':
+                            self._advance()  
+                            self._advance() 
+                            break
+                        self._advance()
+                    continue  
+            break
+
+        start_line = self.line_number
+        start_col = self.col_number
+        char = self.ch
+
+        if char in self.SYMBOLS:
+            self._advance()
+            return JackToken(TokenType.SYMBOL, char, start_line, start_col)
+
+        if char == '"':
+            self._advance() 
+            value = ""
+            while self.ch and self.ch != '"':
+                value += self.ch
+                self._advance()
+            if self.ch == '"':
+                self._advance()  
+            return JackToken(TokenType.STRING_CONSTANT, value, start_line, start_col)
+
+        if char.isdigit():
+            value = ""
+            while self.ch and self.ch.isdigit():
+                value += self.ch
+                self._advance()
+            return JackToken(TokenType.INTEGER_CONSTANT, value, start_line, start_col)
+
+        if char.isalpha() or char == '_':
+            value = ""
+            while self.ch and (self.ch.isalnum() or self.ch == '_'):
+                value += self.ch
+                self._advance()
+            
+            if value in self.KEYWORDS:
+                return JackToken(TokenType.KEYWORD, value, start_line, start_col)
+            else:
+                return JackToken(TokenType.IDENTIFIER, value, start_line, start_col)
+
+        self._advance()
+        return None
 
     def push_back(self, token: JackToken) -> None:
         """
@@ -71,4 +138,4 @@ class Tokenizer:
         Args:
             token: The token to push back
         """
-        raise NotImplementedError()
+        self.prev_tokens.append(token)
