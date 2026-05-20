@@ -422,7 +422,21 @@ class Parser:
         Grammar: subroutineName '(' expressionList ')' |
                  (className | varName) '.' subroutineName '(' expressionList ')'
         """
-        raise NotImplementedError()
+        first_name = self._expect_identifier_or_this()
+        second_token = self._peek()
+
+        if second_token and second_token.value == '.':
+            dot = self.tokenizer.try_read_next()
+            sub_name = self._expect_identifier()
+            open_paren = self._expect('(')
+            args = self.read_expression_list()
+            close_paren = self._expect(')')
+            return SubroutineCall(first_name, dot, sub_name, open_paren, args, close_paren)
+        else:
+            open_paren = self._expect('(')
+            args = self.read_expression_list()
+            close_paren = self._expect(')')
+            return SubroutineCall(None, None, first_name, open_paren, args, close_paren)
 
     def try_read_indexing(self) -> Optional[Indexing]:
         """
@@ -432,7 +446,12 @@ class Parser:
         Returns None if the next token is not '['.
         Note: The preceding identifier (varName) is already consumed by the caller.
         """
-        raise NotImplementedError()
+        if self._peek() and self._peek().value == '[':
+            open_bracket = self.tokenizer.try_read_next()
+            index = self.read_expression()
+            close_bracket = self._expect(']')
+            return Indexing(open_bracket, index, close_bracket)
+        return None
 
     def read_expression_list(self) -> ExpressionListSyntax:
         """
@@ -441,4 +460,15 @@ class Parser:
         Grammar: (expression (',' expression)*)?
         Note: The list may be empty. Stops before ')' without consuming it.
         """
-        raise NotImplementedError()
+        expressions: List[ExpressionSyntax] = []
+        
+        if self._peek() and self._peek().value == ')':
+            return ExpressionListSyntax(expressions)
+
+        expressions.append(self.read_expression())
+
+        while self._peek() and self._peek().value == ',':
+            self.tokenizer.try_read_next()
+            expressions.append(self.read_expression())
+
+        return ExpressionListSyntax(expressions)
