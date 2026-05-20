@@ -301,7 +301,13 @@ class Parser:
         Grammar: 'while' '(' expression ')' '{' statements '}'
         Note: while_keyword is already consumed by the caller.
         """
-        raise NotImplementedError()
+        open_paren = self._expect('(')
+        condition = self.read_expression()
+        close_paren = self._expect(')')
+        open_brace = self._expect('{')
+        statements = self.read_statements()
+        close_brace = self._expect('}')
+        return WhileStatementSyntax(while_keyword, open_paren, condition, close_paren, open_brace, statements, close_brace)
 
     def read_do_statement(self, do_keyword: JackToken) -> DoStatementSyntax:
         """
@@ -310,7 +316,9 @@ class Parser:
         Grammar: 'do' subroutineCall ';'
         Note: do_keyword is already consumed by the caller.
         """
-        raise NotImplementedError()
+        subroutine_call = self.read_subroutine_call()
+        semicolon = self._expect(';')
+        return DoStatementSyntax(do_keyword, subroutine_call, semicolon)
 
     def read_return_statement(self, return_keyword: JackToken) -> ReturnStatementSyntax:
         """
@@ -319,7 +327,11 @@ class Parser:
         Grammar: 'return' expression? ';'
         Note: return_keyword is already consumed by the caller.
         """
-        raise NotImplementedError()
+        expression = None
+        if not (self._peek() and self._peek().value == ';'):
+            expression = self.read_expression()
+        semicolon = self._expect(';')
+        return ReturnStatementSyntax(return_keyword, expression, semicolon)
 
     def read_expression(self) -> ExpressionSyntax:
         """
@@ -329,7 +341,15 @@ class Parser:
         Operators: + - * / & | < > =
         Note: Jack has NO operator precedence - evaluate strictly left-to-right.
         """
-        raise NotImplementedError()
+        first_term = self.read_term()
+        operations: List[Tuple[JackToken, TermSyntax]] = []
+
+        while self._peek() and self._peek().value in OPERATORS:
+            op = self.tokenizer.try_read_next()
+            term = self.read_term()
+            operations.append((op, term))
+
+        return ExpressionSyntax(first_term, operations)
 
     def read_term(self) -> TermSyntax:
         """
@@ -341,7 +361,59 @@ class Parser:
         Keyword constants: true, false, null, this
         Unary operators: - ~
         """
-        raise NotImplementedError()
+        token = self._peek()
+        
+        if token is None:
+            raise ExpectedException("term", None)
+
+        if token.token_type == TokenType.INTEGER_CONSTANT:
+            t = self.tokenizer.try_read_next()
+            return IntegerConstantTerm(t)
+
+        if token.token_type == TokenType.STRING_CONSTANT:
+            t = self.tokenizer.try_read_next()
+            return StringConstantTerm(t)
+
+        if token.token_type == TokenType.KEYWORD:
+            if token.value in KEYWORD_CONSTANTS:
+                if token.value == 'this':
+                    self.tokenizer.try_read_next()
+                    next_token = self._peek()
+                    
+                    if next_token and (next_token.value == '.' or next_token.value == '('):
+                        self.tokenizer.push_back(token)
+                    else:
+                        return KeywordConstantTerm(token)
+                else:
+                    t = self.tokenizer.try_read_next()
+                    return KeywordConstantTerm(t)
+
+        if token.value in UNARY_OPS:
+            op = self.tokenizer.try_read_next()
+            term = self.read_term()
+            return UnaryOpTerm(op, term)
+
+        if token.value == '(':
+            open_paren = self.tokenizer.try_read_next()
+            expr = self.read_expression()
+            close_paren = self._expect(')')
+            return ParenthesizedTerm(open_paren, expr, close_paren)
+
+        if token.token_type == TokenType.IDENTIFIER or (token.token_type == TokenType.KEYWORD and token.value == 'this'):
+            name_token = self.tokenizer.try_read_next()
+            next_token = self._peek()
+
+            if next_token and next_token.value == '[':
+                indexing = self.try_read_indexing()
+                return IndexedVarTerm(name_token, indexing)
+            elif next_token and (next_token.value == '(' or next_token.value == '.'):
+                self.tokenizer.push_back(name_token)
+                call = self.read_subroutine_call()
+                return SubroutineCallTerm(call)
+            else:
+                return VarNameTerm(name_token)
+
+        raise ExpectedException("term", token)
 
     def read_subroutine_call(self) -> SubroutineCall:
         """
