@@ -261,7 +261,7 @@ class Parser:
                     statements.append(self.read_do_statement(dummy_do))
                 else:
                     self.tokenizer.push_back(ident)
-                    raise ExpectedException("statement keyword (let, if, while, do, return) or implicit start", token)
+                    raise ExpectedException("statement keyword (let, if, while, do, return) or implicit start", next_token)
             else:
                 raise ExpectedException("statement keyword (let, if, while, do, return)", token)
 
