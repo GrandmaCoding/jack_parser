@@ -57,7 +57,30 @@ class Parser:
 
         Grammar: 'class' className '{' classVarDec* subroutineDec* '}'
         """
-        raise NotImplementedError()
+        class_keyword = self._expect('class')
+        name = self._expect_identifier()
+        open_brace = self._expect('{')
+
+        var_decs: List[ClassVarDecSyntax] = []
+        while True:
+            token = self._peek()
+            if token and token.value in ('static', 'field'):
+                keyword = self.tokenizer.try_read_next()
+                var_decs.append(self.read_class_var_dec(keyword))
+            else:
+                break
+
+        subroutines: List[SubroutineDecSyntax] = []
+        while True:
+            token = self._peek()
+            if token and token.value in ('constructor', 'function', 'method'):
+                keyword = self.tokenizer.try_read_next()
+                subroutines.append(self.read_subroutine_dec(keyword))
+            else:
+                break
+
+        close_brace = self._expect('}')
+        return ClassSyntax(class_keyword, name, open_brace, var_decs, subroutines, close_brace)
 
     def read_class_var_dec(self, kind_keyword: JackToken) -> ClassVarDecSyntax:
         """
@@ -66,7 +89,15 @@ class Parser:
         Grammar: ('static'|'field') type varName (',' varName)* ';'
         Note: kind_keyword ('static' or 'field') is already consumed by the caller.
         """
-        raise NotImplementedError()
+        type_token = self.read_type()
+        names = [self._expect_identifier()]
+
+        while self._peek() and self._peek().value == ',':
+            self.tokenizer.try_read_next()
+            names.append(self._expect_identifier())
+
+        semicolon = self._expect(';')
+        return ClassVarDecSyntax(kind_keyword, type_token, names, semicolon)
 
     def read_type(self) -> JackToken:
         """
