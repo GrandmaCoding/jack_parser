@@ -32,6 +32,12 @@ class Parser:
             tokenizer: The tokenizer to use for reading tokens
         """
         self.tokenizer = tokenizer
+    
+    def _peek(self) -> Optional[JackToken]:
+        token = self.tokenizer.try_read_next()
+        if token:
+            self.tokenizer.push_back(token)
+        return token
 
     def _expect(self, value: str) -> JackToken:
         """Read a token and expect it to have the given value."""
