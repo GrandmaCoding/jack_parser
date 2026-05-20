@@ -106,7 +106,10 @@ class Parser:
         Grammar: 'int' | 'char' | 'boolean' | className
         Note: className is an identifier.
         """
-        raise NotImplementedError()
+        token = self._peek()
+        if token and token.value in ('int', 'char', 'boolean'):
+            return self.tokenizer.try_read_next()
+        return self._expect_identifier()
 
     def read_subroutine_dec(self, keyword: JackToken) -> SubroutineDecSyntax:
         """
@@ -115,7 +118,13 @@ class Parser:
         Grammar: ('constructor'|'function'|'method') ('void'|type) subroutineName '(' parameterList ')' subroutineBody
         Note: keyword ('constructor', 'function', or 'method') is already consumed by the caller.
         """
-        raise NotImplementedError()
+        return_type = self.read_return_type()
+        name = self._expect_identifier()
+        open_paren = self._expect('(')
+        parameters = self.read_parameter_list()
+        close_paren = self._expect(')')
+        body = self.read_subroutine_body()
+        return SubroutineDecSyntax(keyword, return_type, name, open_paren, parameters, close_paren, body)
 
     def read_return_type(self) -> JackToken:
         """
@@ -124,7 +133,10 @@ class Parser:
         Grammar: 'void' | type
         Note: 'void' is a keyword; type is 'int', 'char', 'boolean', or a className identifier.
         """
-        raise NotImplementedError()
+        token = self._peek()
+        if token and token.value == 'void':
+            return self.tokenizer.try_read_next()
+        return self.read_type()
 
     def read_parameter_list(self) -> ParameterListSyntax:
         """
@@ -133,7 +145,21 @@ class Parser:
         Grammar: ((type varName) (',' type varName)*)?
         Note: The list may be empty. Stops before ')'.
         """
-        raise NotImplementedError()
+        parameters: List[Parameter] = []
+        if self._peek() and self._peek().value == ')':
+            return ParameterListSyntax(parameters)
+
+        p_type = self.read_type()
+        p_name = self._expect_identifier()
+        parameters.append(Parameter(p_type, p_name))
+
+        while self._peek() and self._peek().value == ',':
+            self.tokenizer.try_read_next()
+            p_type = self.read_type()
+            p_name = self._expect_identifier()
+            parameters.append(Parameter(p_type, p_name))
+
+        return ParameterListSyntax(parameters)
 
     def read_subroutine_body(self) -> SubroutineBodySyntax:
         """
@@ -141,7 +167,17 @@ class Parser:
 
         Grammar: '{' varDec* statements '}'
         """
-        raise NotImplementedError()
+        open_brace = self._expect('{')
+
+        var_decs: List[VarDecSyntax] = []
+        while self._peek() and self._peek().value == 'var':
+            var_keyword = self.tokenizer.try_read_next()
+            var_decs.append(self.read_var_dec(var_keyword))
+
+        statements = self.read_statements()
+        close_brace = self._expect('}')
+
+        return SubroutineBodySyntax(open_brace, var_decs, statements, close_brace)
 
     def read_var_dec(self, var_keyword: JackToken) -> VarDecSyntax:
         """
@@ -150,7 +186,15 @@ class Parser:
         Grammar: 'var' type varName (',' varName)* ';'
         Note: var_keyword ('var') is already consumed by the caller.
         """
-        raise NotImplementedError()
+        type_token = self.read_type()
+        names = [self._expect_identifier()]
+
+        while self._peek() and self._peek().value == ',':
+            self.tokenizer.try_read_next()
+            names.append(self._expect_identifier())
+
+        semicolon = self._expect(';')
+        return VarDecSyntax(var_keyword, type_token, names, semicolon)
 
     def read_statements(self) -> StatementsSyntax:
         """
@@ -159,7 +203,51 @@ class Parser:
         Grammar: statement*
         Note: Stops when '}' is encountered (or input ends). Does not consume the closing '}'.
         """
-        raise NotImplementedError()
+        statements: List[StatementSyntax] = []
+
+        while True:
+            token = self._peek()
+            if token is None or token.value == '}':
+                break
+
+            if token.value == 'let':
+                keyword = self.tokenizer.try_read_next()
+                statements.append(self.read_let_statement(keyword))
+            elif token.value == 'if':
+                keyword = self.tokenizer.try_read_next()
+                statements.append(self.read_if_statement(keyword))
+            elif token.value == 'while':
+                keyword = self.tokenizer.try_read_next()
+                statements.append(self.read_while_statement(keyword))
+            elif token.value == 'do':
+                keyword = self.tokenizer.try_read_next()
+                statements.append(self.read_do_statement(keyword))
+            elif token.value == 'return':
+                keyword = self.tokenizer.try_read_next()
+                statements.append(self.read_return_statement(keyword))
+            elif token.token_type == TokenType.IDENTIFIER:
+                ident = self.tokenizer.try_read_next()
+                next_token = self._peek()
+
+                if next_token and next_token.value == '=':
+                    self.tokenizer.push_back(ident)
+                    dummy_let = JackToken(TokenType.KEYWORD, 'let', ident.line_number, ident.col_number)
+                    statements.append(self.read_let_statement(dummy_let))
+                elif next_token and next_token.value == '[':
+                    self.tokenizer.push_back(ident)
+                    dummy_let = JackToken(TokenType.KEYWORD, 'let', ident.line_number, ident.col_number)
+                    statements.append(self.read_let_statement(dummy_let))
+                elif next_token and (next_token.value == '(' or next_token.value == '.'):
+                    self.tokenizer.push_back(ident)
+                    dummy_do = JackToken(TokenType.KEYWORD, 'do', ident.line_number, ident.col_number)
+                    statements.append(self.read_do_statement(dummy_do))
+                else:
+                    self.tokenizer.push_back(ident)
+                    raise ExpectedException("statement keyword (let, if, while, do, return) or implicit start", token)
+            else:
+                raise ExpectedException("statement keyword (let, if, while, do, return)", token)
+
+        return StatementsSyntax(statements)
 
     def read_let_statement(self, let_keyword: JackToken) -> LetStatementSyntax:
         """
@@ -168,7 +256,12 @@ class Parser:
         Grammar: 'let' varName ('[' expression ']')? '=' expression ';'
         Note: let_keyword is already consumed by the caller.
         """
-        raise NotImplementedError()
+        var_name = self._expect_identifier()
+        indexing = self.try_read_indexing()
+        equals = self._expect('=')
+        value = self.read_expression()
+        semicolon = self._expect(';')
+        return LetStatementSyntax(let_keyword, var_name, indexing, equals, value, semicolon)
 
     def read_if_statement(self, if_keyword: JackToken) -> IfStatementSyntax:
         """
@@ -177,7 +270,14 @@ class Parser:
         Grammar: 'if' '(' expression ')' '{' statements '}' ('else' '{' statements '}')?
         Note: if_keyword is already consumed by the caller.
         """
-        raise NotImplementedError()
+        open_paren = self._expect('(')
+        condition = self.read_expression()
+        close_paren = self._expect(')')
+        open_true = self._expect('{')
+        true_statements = self.read_statements()
+        close_true = self._expect('}')
+        else_clause = self.try_read_else_clause()
+        return IfStatementSyntax(if_keyword, open_paren, condition, close_paren, open_true, true_statements, close_true, else_clause)
 
     def try_read_else_clause(self) -> Optional[ElseClause]:
         """
@@ -186,7 +286,13 @@ class Parser:
         Grammar: ('else' '{' statements '}')?
         Returns None if the next token is not 'else'.
         """
-        raise NotImplementedError()
+        if self._peek() and self._peek().value == 'else':
+            else_keyword = self.tokenizer.try_read_next()
+            open_brace = self._expect('{')
+            statements = self.read_statements()
+            close_brace = self._expect('}')
+            return ElseClause(else_keyword, open_brace, statements, close_brace)
+        return None
 
     def read_while_statement(self, while_keyword: JackToken) -> WhileStatementSyntax:
         """
