@@ -1,8 +1,8 @@
 from typing import TypeVar, Callable, List, Optional, Any
-from .jack_token import JackToken
-from .token_type import TokenType
-from .tokenizer import Tokenizer
-from .exceptions import ExpectedException
+from jack_token import JackToken
+from token_type import TokenType
+from tokenizer import Tokenizer
+from exceptions import ExpectedException
 
 
 T = TypeVar('T')

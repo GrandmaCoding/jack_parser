@@ -1,12 +1,12 @@
 from typing import Optional, List, Callable, Any, cast, Tuple
 
-from .jack_token import JackToken
-from .tokenizer import Tokenizer
-from .token_type import TokenType
-from .exceptions import ExpectedException
+from jack_token import JackToken
+from tokenizer import Tokenizer
+from token_type import TokenType
+from exceptions import ExpectedException
 from . import tokenizer_extensions
 
-from .jack_syntax import (
+from jack_syntax import (
     ClassSyntax, ClassVarDecSyntax, Parameter, ParameterListSyntax,
     SubroutineDecSyntax, SubroutineBodySyntax, VarDecSyntax, StatementsSyntax,
     StatementSyntax, LetStatementSyntax, Indexing, IfStatementSyntax, ElseClause,

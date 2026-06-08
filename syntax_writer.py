@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 import inspect
 from collections.abc import Iterable
 
-from .jack_token import JackToken
-from .jack_syntax import (
+from jack_token import JackToken
+from jack_syntax import (
     ClassSyntax, ClassVarDecSyntax, SubroutineDecSyntax, ParameterListSyntax,
     Parameter, SubroutineBodySyntax, VarDecSyntax, StatementsSyntax, StatementSyntax,
     LetStatementSyntax, IfStatementSyntax, WhileStatementSyntax, DoStatementSyntax,

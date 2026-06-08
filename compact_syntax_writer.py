@@ -1,8 +1,8 @@
 from typing import Type, Any
-from .syntax_writer import SyntaxWriter
-from .jack_token import JackToken
-from .jack_syntax import TermSyntax, ExpressionSyntax, ExpressionListSyntax, ParameterListSyntax, Parameter, ClassVarDecSyntax, VarDecSyntax
-from .token_type import TokenType
+from syntax_writer import SyntaxWriter
+from jack_token import JackToken
+from jack_syntax import TermSyntax, ExpressionSyntax, ExpressionListSyntax, ParameterListSyntax, Parameter, ClassVarDecSyntax, VarDecSyntax
+from token_type import TokenType
 
 class CompactSyntaxWriter(SyntaxWriter):
     def __init__(self):

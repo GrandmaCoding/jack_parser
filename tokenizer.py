@@ -1,6 +1,6 @@
 from typing import Optional, Set, List
-from .jack_token import JackToken
-from .token_type import TokenType
+from jack_token import JackToken
+from token_type import TokenType
 
 
 class Tokenizer:
